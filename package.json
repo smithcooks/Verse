@@ -1,0 +1,55 @@
+{
+  "name": "verse-windows",
+  "productName": "Verse",
+  "version": "0.1.8",
+  "description": "Independent Windows animated lyrics desktop app inspired by Verci",
+  "private": true,
+  "main": "src/main.cjs",
+  "scripts": {
+    "bridge": "dotnet publish bridge/MediaBridge.csproj -c Release -r win-x64 --self-contained true -o bridge/bin/publish",
+    "start": "electron .",
+    "demo": "electron . --demo",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.cjs",
+    "build": "npm run check && npm test && npm run bridge && electron-builder --win dir",
+    "package": "npm run check && npm test && npm run bridge && electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "local.verse.windows",
+    "asar": true,
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "bridge/bin/publish",
+        "to": "bridge"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "Verse-${version}-Windows.exe"
+    }
+  },
+  "dependencies": {
+    "youtubei.js": "^18.1.0"
+  }
+}

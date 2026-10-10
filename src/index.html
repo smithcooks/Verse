@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://yt3.googleusercontent.com https://lh3.googleusercontent.com https://i.ytimg.com https://yt3.ggpht.com; media-src verse-audio:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'">
+  <title>Verse</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="window-bar"><span>Verse</span><div><button data-action="window-minimize" aria-label="Minimize" title="Minimize">−</button><button data-action="window-expand" aria-label="Expand or restore window" title="Expand or restore">□</button><button data-action="window-hide" aria-label="Close to tray" title="Close to tray">×</button></div></header>
+  <div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div id="app" class="app-shell">
+    <aside class="sidebar glass">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>verse<span class="brand-dot">.</span></span></div>
+      <p class="sidebar-caption">YOUR MUSIC, IN MOTION</p>
+      <nav aria-label="Main navigation">
+        <button class="nav-item selected" data-tab="lyrics"><span aria-hidden="true">♫</span> Lyrics</button>
+        <button class="nav-item" data-tab="music"><span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="16" rx="3" ry="3"/></svg></span> Music</button>
+        <button class="nav-item" data-tab="settings"><span aria-hidden="true">⚙</span> Preferences</button>
+      </nav>
+      <div class="sidebar-bottom"><span class="connection-dot"></span><span id="connection">Waiting for playback</span><small id="app-version">Windows · Verse</small></div>
+    </aside>
+    <main class="workspace">
+      <header class="topbar">
+        <div><p class="eyebrow" id="page-eyebrow">LIVE LYRICS</p><h1 id="page-title">Now playing</h1></div>
+        <div class="topbar-actions"><span class="timing-badge" id="timing">No lyrics yet</span><button class="icon-button glass" data-action="hide" title="Hide lyric window" aria-label="Hide lyric window">↙</button></div>
+      </header>
+      <section id="lyrics-page" class="page active">
+        <div class="preview-stage glass" id="preview-stage">
+          <div class="stage-caption"><span><i class="live-dot"></i> <span id="preview-label">LYRIC PREVIEW</span></span><button class="text-button" data-action="demo" id="demo-button">Try demo ↗</button></div>
+          <div class="lyric-stage" id="preview-canvas" aria-label="Animated lyrics preview"></div>
+          <div class="empty-message" id="empty"><span class="empty-symbol">♫</span><h2>A song is all it takes.</h2><p id="status">Start music, or try the original demo.</p><button class="pill primary" data-tab="music">Open Music <span aria-hidden="true">↗</span></button></div>
+          <div class="stage-footer"><span id="preview-style">Fisheye Visual</span><span id="motion-caption">Words follow the music</span></div>
+        </div>
+        <div class="style-heading"><h2>Display style</h2><span>Same song. A different feeling.</span></div>
+        <div class="style-picker" role="group" aria-label="Lyric display style">
+          <button data-style="ship"><span class="style-mini ship-mini" aria-hidden="true"><i>stay</i><b>with</b><i>me</i></span><span>Ship</span></button>
+          <button data-style="fisheye"><span class="style-mini fish-mini" aria-hidden="true"><i>stay</i><b>with</b><i>me</i></span><span>Fisheye</span></button>
+          <button data-style="fisheye-visual" class="selected"><span class="style-mini fish-mini" aria-hidden="true"><i>stay ✧</i><b>with</b><i>me ♡</i></span><span>Fisheye Visual</span></button>
+          <button data-style="visual"><span class="style-mini visual-mini" aria-hidden="true"><b>night ☾</b></span><span>Visual</span></button>
+        </div>
+        <div class="launch-row"><div class="segmented glass" role="group" aria-label="Lyric window mode"><button data-mode="fullscreen" class="selected">⛶ Fullscreen</button><button data-mode="overlay">▣ Desktop overlay</button></div><button class="pill primary" data-action="show">Show lyrics <span aria-hidden="true">↗</span></button></div>
+        <p class="shortcut-hint" id="shortcut-hint">Ctrl + Alt + L to show or hide · Esc to close fullscreen</p>
+      </section>
+      <section id="music-page" class="page">
+        <div class="music-toolbar"><div class="library-tabs glass" role="group" aria-label="Music library"><button data-library="home" class="selected" aria-pressed="true">Listen</button><button data-library="history" aria-pressed="false">History</button><button data-library="liked" aria-pressed="false">Liked songs</button></div><form id="music-search" class="search-bar glass"><input id="music-query" type="search" maxlength="200" placeholder="Search songs & artists" aria-label="Search music" required><button class="pill" type="submit" id="search-button">Search</button></form></div>
+        <p id="music-status" role="status">Your music, in one place.</p>
+        <div class="music-dashboard">
+          <div class="music-main">
+            <div class="music-feature glass"><div class="feature-art"><img id="feature-artwork" alt="Playing album" hidden><span aria-hidden="true">♫</span></div><div class="feature-copy"><p class="eyebrow">NOW PLAYING</p><h2 id="feature-title">Find your next favourite.</h2><p id="feature-artist">Choose a song and make it yours.</p><div class="feature-actions"><button class="pill primary" data-music="toggle" id="feature-play">Play</button><button id="like-current" class="pill" aria-pressed="false" disabled>Like song</button><button class="pill" data-action="show">Lyrics ↗</button></div></div></div>
+            <section id="library-home" class="library-view"><div class="section-heading"><div><h2>Made for your listening</h2><p id="recommendation-caption">Discover something new</p></div><button class="text-button" id="refresh-recommendations">Refresh</button></div><div id="music-recommendations" class="album-grid" aria-live="polite"><p class="library-empty">Your next listen is on its way…</p></div><div class="section-heading"><h2>Recently played</h2><button class="text-button" data-library="history">View all</button></div><div id="recent-songs" class="album-grid"></div></section>
+            <section id="library-history" class="library-view" hidden><div class="section-heading"><div><h2>Listening history</h2><p>Saved on this device</p></div><button class="text-button" id="clear-history">Clear history</button></div><div id="history-songs" class="song-list"></div></section>
+            <section id="library-liked" class="library-view" hidden><div class="section-heading"><div><h2>Liked songs</h2><p>Your collection, ready to play</p></div><button class="pill small" id="play-liked">Play collection</button></div><div id="liked-songs" class="song-list"></div></section>
+            <section id="library-search" class="library-view" hidden><div class="section-heading"><h2>Search results</h2><button class="text-button" data-library="home">Back to Listen</button></div><div id="music-results" class="song-list"></div></section>
+          </div>
+          <aside class="queue-panel glass" aria-label="Playback queue"><div class="queue-heading"><h2>Up next <span id="queue-count">0</span></h2><button id="clear-queue" class="text-button">Clear</button></div><div class="queue-options"><button id="shuffle-queue" class="text-button">Shuffle</button><button id="repeat-song" class="text-button" aria-pressed="false">Repeat off</button></div><div id="music-queue" class="song-list"></div></aside>
+        </div>
+      </section>
+      <section id="settings-page" class="page settings-page">
+        <div class="settings-group"><h2>Appearance</h2>
+          <label class="setting-row"><span>Auto Sync<span class="setting-description">Choose colours from the album artwork</span></span><input type="checkbox" data-setting="autoSync" class="switch"></label>
+          <div class="colour-row"><label>Lyric text<input type="color" data-setting="lyric"></label><label>Secondary<input type="color" data-setting="secondary"></label><button class="text-button" id="reset-colours">Reset</button></div>
+          <div class="colour-editor"><div id="colour-wheel" class="colour-wheel" role="slider" tabindex="0" aria-label="Text colour hue and saturation" aria-valuemin="0" aria-valuemax="360" aria-valuenow="0"><i id="colour-marker"></i></div><label>Brightness<input id="colour-brightness" type="range" min="0" max="100" value="100"></label><p id="colour-value">#ffffff</p></div>
+          <label class="setting-row"><span>Fullscreen background</span><select data-setting="background"><option value="artwork">Album artwork</option><option value="gradient">Artwork colour gradient</option><option value="none">Plain dark</option></select></label>
+          <label class="setting-row"><span>Typeface</span><select data-setting="font"><option>Segoe UI</option><option>Arial</option><option>Arial Black</option><option>Impact</option><option>Calibri</option><option>Georgia</option><option>Verdana</option><option>Trebuchet MS</option></select></label>
+          <label class="setting-row"><span>Text size <output id="font-size-label"></output></span><input type="range" data-setting="fontSize" min="28" max="240" step="2"></label>
+<label class="setting-row"><span>Weight</span><select data-setting="fontWeight"><option value="600">Semibold</option><option value="700">Bold</option><option value="800">Extra bold</option><option value="900">Heavy</option></select></label><label class="setting-row"><span>Text finish</span><select data-setting="textEffect"><option value="none">Clean</option><option value="shadow">Soft shadow</option><option value="outline">Outline</option></select></label>
+          <label class="setting-row"><span>Reduced motion<span class="setting-description">Keep the active lyric still</span></span><input type="checkbox" data-setting="reducedMotion" class="switch"></label>
+          <label class="setting-row"><span>Use Windows motion preference<span class="setting-description" id="system-motion-hint">Follow your system accessibility setting</span></span><input type="checkbox" data-setting="respectSystemMotion" class="switch"></label>
+        </div>
+        <div class="settings-group"><h2>Playback & timing</h2>
+          <label class="setting-row"><span>Music source</span><select data-setting="source" id="source-select"><option value="">Follow active playback</option><option value="verse-player">Verse music player</option></select></label>
+          <label class="setting-row"><span>Timing offset <output id="offset-label"></output><span class="setting-description">Negative values delay highlighting for audio latency</span></span><input type="range" data-setting="offset" min="-5" max="5" step="0.1"></label>
+          <p class="settings-note">Every lyric is displayed word by word. Timing is estimated when the source provides only line timestamps.</p>
+          <div class="setting-row"><span>Timed lyric file<span class="setting-description">Import .lrc for the current song</span></span><button class="pill small" id="import-button">Choose file</button></div>
+          <div class="setting-row"><span>Lyric lookup</span><button class="pill small" data-action="retry">Retry lookup</button></div>
+        </div>
+        <div class="settings-group"><h2>Desktop</h2>
+          <label class="setting-row"><span>Display</span><select data-setting="display" id="display-select"><option value="">Primary display</option></select></label>
+          <label class="setting-row"><span>Keep display awake<span class="setting-description">While music and the lyric window are active</span></span><input type="checkbox" data-setting="keepAwake" class="switch"></label>
+          <label class="setting-row"><span>Open after two minutes idle</span><input type="checkbox" data-setting="idle" class="switch"></label>
+          <label class="setting-row"><span>Clickable overlay<span class="setting-description">Turn off to pass clicks to your desktop; use the tray to hide</span></span><input type="checkbox" data-setting="overlayInteractive" class="switch"></label>
+          <label class="setting-row"><span>Start with Windows<span class="setting-description" id="startup-hint">Available in the packaged app</span></span><input type="checkbox" data-setting="startup" class="switch" id="startup-toggle"></label>
+        </div>
+        <p class="settings-note">Fullscreen lyrics run while Windows is unlocked. Verse respects the system lock screen. Lyric lookup sends the current song details to LRCLIB.</p>
+      </section>
+      <footer class="now-playing glass">
+        <div class="album-cover" id="album-cover"><span aria-hidden="true">♫</span><img id="artwork" alt="Current album artwork" hidden></div>
+        <div class="track-info"><strong id="track-title">Nothing playing</strong><span id="track-artist">Play a song to begin</span></div>
+        <div class="player-buttons"><button data-music="previous" aria-label="Previous song">⏮</button><button data-music="toggle" id="play-toggle" aria-label="Play or pause">▶</button><button data-music="next" aria-label="Next song">⏭</button></div>
+        <div class="track-progress"><div class="progress-line"><i id="progress-fill"></i></div><input id="player-seek" type="range" min="0" max="1000" value="0" aria-label="Seek in song"><div class="progress-times"><span id="elapsed">0:00</span><span id="duration">0:00</span></div></div>
+        <input id="player-volume" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="Volume">
+        <span class="playback-state" id="playback-state">Standby</span>
+      </footer>
+    </main>
+  </div>
+  <div id="lyrics-view" hidden><div id="lyric-backdrop" aria-hidden="true"><div id="album-backdrop"></div><div id="gradient-backdrop"></div></div><div class="lyric-stage" id="lyrics-canvas" aria-label="Animated synchronized lyrics"></div><div class="lyric-controls glass"><button data-music="previous" aria-label="Previous song">⏮</button><button data-music="toggle" aria-label="Play or pause">▶</button><button data-music="next" aria-label="Next song">⏭</button><button data-action="preferences" aria-label="Open preferences">⚙</button><button data-action="hide" aria-label="Hide lyrics">×</button></div><div class="lyric-track"><span id="lyric-track-title"></span><small id="lyric-track-status"></small></div><div id="lyric-empty" class="lyric-empty"></div></div>
+  <audio id="native-audio" preload="none"></audio>
+  <div class="toast glass" id="toast" role="status" hidden></div>
+  <script type="module" src="renderer.mjs"></script>
+  <script type="module" src="player.mjs"></script>
+</body>
+</html>

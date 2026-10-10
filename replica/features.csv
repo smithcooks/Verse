@@ -1,0 +1,21 @@
+feature,area,priority,original,clone,notes
+Playback session discovery,integration,must,Spotify and Apple Music,partial,Helper compiles and API opens; real player matrix unverified
+Session selector,integration,must,unverified,yes,Native sources plus internal YouTube Music
+Word-synced lyrics,lyrics,must,yes,partial,Enhanced LRC exact; automatic word timing estimated from lines
+Line-synced fallback,lyrics,must,unverified,yes,Timing quality labeled and estimates can be disabled
+Lyrics cache and failure states,lyrics,must,unverified,yes,Local cache and guarded stale responses
+Tray controls,shell,must,menu bar,yes,Windows tray equivalent
+Fullscreen lyrics view,display,must,lock-screen display,partial,Unlocked view verified; secured lock screen unavailable
+Desktop overlay,display,must,unlocked visibility,partial,Visibility smoke passed; manual click-through unverified
+One polished style,visual,must,yes,yes,Original canvas typography and glass controls
+All four style families,visual,should,yes,partial,All render independently; exact visual parity unverified
+Timing offset,settings,must,unverified,partial,Implemented; real listening calibration unverified
+Reduced motion,accessibility,must,unverified,yes,System preference plus explicit controls
+Local enhanced LRC import,lyrics,should,unverified,partial,Parser tested; file-dialog interaction unverified
+Optional idle activation,shell,should,unverified,partial,Implemented; actual idle transition unverified
+Display-awake toggle,shell,should,yes,partial,Visibility-scoped blocker; real sleep behavior unverified
+Secured Windows lock-screen overlay,display,skip,macOS feature,no,Outside supported normal-window approach
+Players without usable SMTC,integration,skip,not universal,no,Require separate integration and schedule
+Extensive icon mapping,visual,could,yes,partial,Small independent symbol vocabulary; original mapping not copied
+Accounts and billing,commercial,skip,purchase on site,no,Local beta first
+Embedded YouTube Music,player,must,not original,partial,Isolated official homepage loads; sign-in and real playback unverified

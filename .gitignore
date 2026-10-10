@@ -1,0 +1,23 @@
+node_modules/
+dist/
+bridge/bin/
+bridge/obj/
+artifacts/
+.env*
+*.log
+# Source-only publication: never commit distributable binaries or local profiles.
+*.exe
+*.msi
+*.dll
+*.pdb
+*.zip
+*.7z
+*.dz
+*.DZ
+*.dzs
+*.DZs
+*.pem
+*.key
+*.pfx
+*.p12
+.vs/
