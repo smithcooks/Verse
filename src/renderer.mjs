@@ -1,33 +1,12 @@
-import { activeIndex, playbackPosition, timedWords, parseLrc, trackKey, reconcilePlayback } from './lyrics.mjs';
+import { activeIndex, playbackPosition, timedWords, trackKey, reconcilePlayback } from './lyrics.mjs';
 import { hsvHex } from './colour.mjs';
 
 const $ = id => document.getElementById(id);
 const styleNames = { ship: 'Ship', fisheye: 'Fisheye', 'fisheye-visual': 'Fisheye Visual', visual: 'Visual' };
-const demoText = '[00:00]<00:00>Let <00:00.55>the <00:01.05>night <00:01.90>unfold\n[00:04]<00:04>We <00:04.55>are <00:05.05>made <00:05.80>of <00:06.30>starlight\n[00:08]<00:08>Every <00:08.8>heartbeat <00:09.85>finds <00:10.5>a <00:10.9>home\n[00:13]<00:13>Like <00:13.55>an <00:14.05>ocean <00:15.1>in <00:15.55>the <00:16>sky\n[00:18]<00:18>Stay <00:18.8>here <00:19.5>with <00:20.1>me\n[00:22]<00:22>Tonight';
 let state, receivedAt = performance.now(), words = [], lyricSignature = '', tabName = 'lyrics', toastTimer;
 let artworkKey = '', sampledPalette = null;
 const pendingSettings = {};
-const standalone = !window.verse;
-let previewState = {
-  settings: { style: 'fisheye-visual', lyric: '#ffffff', highlight: '#414854', secondary: '#b7b7c5', autoSync: false, background: 'gradient', font: 'Segoe UI', fontSize: 112, fontWeight: 800, offset: 0, mode: 'fullscreen', reducedMotion: false, respectSystemMotion: false, estimateWords: true, keepAwake: true, startup: false, idle: false, source: '', display: '', overlayInteractive: true },
-  track: null, sources: [], displays: [], lyrics: [], status: 'Start music, or try the original demo.', demo: false, shortcutAvailable: false, packaged: false
-};
-let previewStart = performance.now();
-const api = window.verse || {
-  state: async () => previewState,
-  settings: async patch => { previewState.settings = { ...previewState.settings, ...patch }; applyState(previewState); return previewState; },
-  action: async action => {
-    if (action === 'demo') {
-      previewState.demo = !previewState.demo; previewStart = performance.now();
-      previewState.track = previewState.demo ? { title: 'Made of Starlight', artist: 'Verse · original demo text', source: 'Original demo', duration: 26, position: 0, playing: true } : null;
-      previewState.lyrics = previewState.demo ? parseLrc(demoText) : []; applyState(previewState);
-    } else if (action === 'show') toast('Launch the Windows app to open a separate lyric window.');
-    else if (action === 'music') toast('The Windows app includes the official YouTube Music player.');
-    return previewState;
-  },
-  importLyrics: async () => ({ error: 'Lyric import is available in the Windows app.' }),
-  onState: () => () => {}
-};
+const api = window.verse;
 const isLyricsView = new URLSearchParams(location.search).get('view') === 'lyrics';
 if (isLyricsView) { document.body.classList.add('lyrics-only'); $('lyrics-view').hidden = false; }
 
@@ -112,25 +91,23 @@ function applyState(value) {
   $('timing').textContent = timing;
   $('motion-caption').textContent = timing;
   $('preview-style').textContent = styleNames[s.style];
-  $('preview-label').textContent = state.demo ? 'ORIGINAL DEMO' : 'LYRIC PREVIEW';
-  $('demo-button').textContent = state.demo ? 'Exit demo ↗' : 'Try demo ↗';
-  const hasLyrics = words.length > 0 && (state.demo || state.track?.timelineAvailable !== false);
+  const hasLyrics = words.length > 0 && state.track?.timelineAvailable !== false;
   $('empty').hidden = hasLyrics;
-  $('status').textContent = state.track?.timelineAvailable === false && !state.demo ? 'This player is not sharing playback timing. Choose another source.' : state.status;
+  $('status').textContent = state.track?.timelineAvailable === false ? 'This player is not sharing playback timing. Choose another source.' : state.status;
   $('lyric-empty').textContent = hasLyrics ? '' : $('status').textContent;
   $('track-title').textContent = state.track?.title || 'Nothing playing';
   $('track-artist').textContent = state.track?.artist || 'Play a song to begin';
   $('playback-state').textContent = state.track ? state.track.playing ? 'Playing' : 'Paused' : 'Standby';
-  $('connection').textContent = state.demo ? 'Original demo playing' : state.track ? 'Player connected' : 'Waiting for playback';
+  $('connection').textContent = state.track ? 'Player connected' : 'Waiting for playback';
   $('app-version').textContent = `Windows · Verse ${state.version || 'preview'}`;
   $('lyric-track-title').textContent = state.track ? `${state.track.title} · ${state.track.artist}` : '';
-  $('lyric-track-status').textContent = `${timing}${state.demo ? ' · demo' : ''}`;
+  $('lyric-track-status').textContent = timing;
   $('font-size-label').textContent = `${s.fontSize}`;
   $('colour-value').textContent = s.lyric;
   $('lyric-backdrop').dataset.mode = s.background || 'gradient';
   $('offset-label').textContent = `${s.offset > 0 ? '+' : ''}${s.offset.toFixed(1)} s`;
   $('system-motion-hint').textContent = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Windows has reduced motion enabled; disable this option to animate lyrics' : 'Follow your system accessibility setting';
-  $('shortcut-hint').textContent = state.shortcutAvailable ? 'Ctrl + Alt + L to show or hide · Esc to close fullscreen' : standalone ? 'Windows desktop preview · try the demo' : 'Shortcut unavailable · use Show lyrics or the tray menu';
+  $('shortcut-hint').textContent = state.shortcutAvailable ? 'Ctrl + Alt + L to show or hide · Esc to close fullscreen' : 'Shortcut unavailable · use Show lyrics or the tray menu';
   for (const input of document.querySelectorAll('[data-setting]')) {
     if (document.activeElement === input) continue;
     if (input.type === 'checkbox') input.checked = s[input.dataset.setting]; else input.value = s[input.dataset.setting];
@@ -194,7 +171,7 @@ class LyricText {
     this.observer.observe(element);
   }
   render(position) {
-    const available = words.length && (state.demo || state.track?.timelineAvailable !== false);
+    const available = words.length && state.track?.timelineAvailable !== false;
     const index = available ? activeIndex(words, position) : -1;
     const s = state.settings;
     const reduced = s.reducedMotion || (s.respectSystemMotion && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -252,7 +229,7 @@ let lastUi = 0;
 function frame(now) {
   if (state && !document.hidden) {
     const elapsed = (now - receivedAt) / 1000;
-    const playback = standalone && state.demo ? (now - previewStart) / 1000 % 26 : playbackPosition(state.track, elapsed);
+    const playback = playbackPosition(state.track, elapsed);
     const position = state.settings.offset + playback;
     if (isLyricsView || tabName === 'lyrics') visualizer.render(position);
     if (now - lastUi > 200) {
@@ -269,4 +246,3 @@ api.onState(applyState);
 api.onNavigate?.(switchTab);
 try { applyState(await api.state()); } catch (error) { toast(`Could not connect to Verse: ${error.message}`); }
 requestAnimationFrame(frame);
-if (standalone && new URLSearchParams(location.search).has('demo')) api.action('demo');

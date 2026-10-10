@@ -1,14 +1,13 @@
 {
   "name": "verse-windows",
   "productName": "Verse",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Independent Windows animated lyrics desktop app inspired by Verci",
   "private": true,
   "main": "src/main.cjs",
   "scripts": {
     "bridge": "dotnet publish bridge/MediaBridge.csproj -c Release -r win-x64 --self-contained true -o bridge/bin/publish",
     "start": "electron .",
-    "demo": "electron . --demo",
     "test": "node --test tests/*.test.mjs",
     "check": "node scripts/check.cjs",
     "build": "npm run check && npm test && npm run bridge && electron-builder --win dir",

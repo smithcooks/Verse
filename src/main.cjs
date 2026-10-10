@@ -8,9 +8,10 @@ const { defaults, sanitize } = require('./settings.cjs');
 
 const styles = [['ship', 'Ship'], ['fisheye', 'Fisheye'], ['fisheye-visual', 'Fisheye Visual'], ['visual', 'Visual']];
 let settings = { ...defaults }, controls, lyricsWindow, tray, bridge, blocker, playbackTimer;
-let state = { track: null, sources: [], lyrics: [], status: 'Start music in a player to see its lyrics.', demo: false };
+let state = { track: null, sources: [], lyrics: [], status: 'Start music in a player to see its lyrics.' };
 let lyricApi, request, generation = 0, currentKey = '', locked = false, quitting = false;
-let demoStart = 0, bridgeLastSeen = 0, idleOpened = false, shortcutAvailable = false;
+let smokeFixture = false;
+let bridgeLastSeen = 0, idleOpened = false, shortcutAvailable = false;
 let externalTrack = null, artworkRequest;
 let nativeTrack = null, nativeTicket = 0;
 let nativeStream = null;
@@ -19,7 +20,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'verse-audio', privileges: { sta
 const nativePlayer = require('./youtube.cjs').createPlayer((url, options = {}) => net.fetch(url, { ...options, signal: AbortSignal.timeout(15000) }));
 const dataPath = (...parts) => path.join(app.getPath('userData'), ...parts);
 const hash = value => createHash('sha256').update(value).digest('hex');
-const demoLrc = '[00:00.00]<00:00.00>Let <00:00.55>the <00:01.05>night <00:01.90>unfold\n[00:04.00]<00:04.00>We <00:04.55>are <00:05.05>made <00:05.80>of <00:06.30>starlight\n[00:08.00]<00:08.00>Every <00:08.80>heartbeat <00:09.85>finds <00:10.50>a <00:10.90>home\n[00:13.00]<00:13.00>Like <00:13.55>an <00:14.05>ocean <00:15.10>in <00:15.55>the <00:16.00>sky\n[00:18.00]<00:18.00>Stay <00:18.80>here <00:19.50>with <00:20.10>me\n[00:22.00]<00:22.00>Tonight';
+
 
 if (process.argv.includes('--smoke')) app.setPath('userData', path.join(process.cwd(), 'artifacts', 'smoke-profile'));
 if (!app.requestSingleInstanceLock()) { console.log('Verse is already running.'); app.quit(); }
@@ -60,6 +61,7 @@ function secureWindow(options) {
   win.webContents.on('will-navigate', event => event.preventDefault());
   win.webContents.session.setPermissionRequestHandler((_web, _permission, callback) => callback(false));
   win.webContents.on('render-process-gone', (_event, details) => console.error('Renderer stopped:', details.reason));
+  if (process.argv.includes('--smoke')) win.webContents.on('console-message', (_event, details) => { if (details.level === 'error') console.error('Renderer:', details.message); });
   return win;
 }
 function targetDisplay() { return screen.getAllDisplays().find(d => String(d.id) === settings.display) || screen.getPrimaryDisplay(); }
@@ -90,7 +92,7 @@ function showLyrics() {
 function hideLyrics() { lyricsWindow?.hide(); idleOpened = false; updateBlocker(); }
 function showControls() { controls.show(); controls.focus(); }
 function acceptPlayback() {
-  if (state.demo) return;
+  if (smokeFixture) return;
   state.track = settings.source === 'verse-player' ? nativeTrack : !settings.source && nativeTrack?.playing ? nativeTrack : externalTrack || (!settings.source ? nativeTrack : null);
   const key = lyricApi.trackKey(state.track);
   if (key !== currentKey) {
@@ -128,7 +130,6 @@ function rebuildTray() {
     { type: 'separator' },
     { label: 'Auto Sync colours', type: 'checkbox', checked: settings.autoSync, click: item => updateSettings({ autoSync: item.checked }) },
     { label: 'Keep display awake', type: 'checkbox', checked: settings.keepAwake, click: item => updateSettings({ keepAwake: item.checked }) },
-    { label: 'Demo playback', type: 'checkbox', checked: state.demo, click: item => setDemo(item.checked) },
     { label: 'Music', click: () => { showControls(); controls.webContents.send('navigate', 'music'); } },
     { label: 'Import timed lyrics…', click: async () => { const result = await importLyrics(); if (result.error) dialog.showErrorBox('Lyrics could not be imported', result.error); } }, { label: 'Preferences…', click: showControls },
     { type: 'separator' }, { label: 'Quit Verse', click: () => app.quit() }
@@ -185,7 +186,7 @@ async function lookup(track) {
         }
       } finally { clearTimeout(timeout); }
     }
-    if (ticket !== generation || key !== currentKey || state.demo) return;
+    if (ticket !== generation || key !== currentKey || smokeFixture) return;
     state.lyrics = result.syncedLyrics ? lyricApi.parseLrc(result.syncedLyrics) : [];
     state.status = result.instrumental ? 'Instrumental track' : state.lyrics.length ? (result.local ? 'Imported lyrics' : 'Lyrics from LRCLIB') : 'No timed lyrics found. Import an LRC file to add this track.';
   } catch (error) {
@@ -196,7 +197,7 @@ async function lookup(track) {
   send();
 }
 async function importLyrics() {
-  if (!state.track || state.demo) return { error: 'Play a real track before importing lyrics.' };
+  if (!state.track || smokeFixture) return { error: 'Play a real track before importing lyrics.' };
   const track = { ...state.track }, key = currentKey;
   const result = await dialog.showOpenDialog(controls, { title: 'Choose lyrics for the current track', filters: [{ name: 'Timed lyrics', extensions: ['lrc'] }], properties: ['openFile'] });
   if (result.canceled) return { canceled: true };
@@ -206,7 +207,7 @@ async function importLyrics() {
     const text = await fs.readFile(result.filePaths[0], 'utf8');
     const lines = lyricApi.parseLrc(text);
     if (!lines.length) throw new Error('This file does not contain timed lyrics.');
-    if (currentKey !== key || state.demo) throw new Error('The track changed. Import for the new track instead.');
+    if (currentKey !== key || smokeFixture) throw new Error('The track changed. Import for the new track instead.');
     const fileKey = hash(JSON.stringify([track.title, track.artist, track.album]));
     await fs.mkdir(dataPath('lyrics'), { recursive: true });
     await fs.writeFile(dataPath('lyrics', fileKey + '.lrc'), text, 'utf8');
@@ -214,20 +215,11 @@ async function importLyrics() {
     return { ok: true };
   } catch (error) { return { error: error.message }; }
 }
-function setDemo(enabled) {
-  generation++; request?.abort(); currentKey = ''; state.demo = enabled;
-  if (enabled) {
-    demoStart = performance.now();
-    state.track = { source: 'Verse original demo', title: 'Made of Starlight', artist: 'Verse · original demo text', album: 'A little light', duration: 26, position: 0, playing: true, rate: 1 };
-    state.lyrics = lyricApi.parseLrc(demoLrc); state.status = 'Original demo · true word timestamps';
-  } else { state.track = null; state.lyrics = []; state.status = 'Waiting for music…'; }
-  rebuildTray(); send();
-}
 function startBridge() {
   if (process.platform !== 'win32') { state.status = 'Live playback requires Windows.'; send(); return; }
   const executable = app.isPackaged ? path.join(process.resourcesPath, 'bridge', 'MediaBridge.exe') : path.join(__dirname, '..', 'bridge', 'bin', 'publish', 'MediaBridge.exe');
   bridge = spawn(executable, [], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
-  bridge.on('error', error => { if (!state.demo) { state.status = `Playback helper unavailable: ${error.message}. Run npm run bridge.`; send(); } });
+  bridge.on('error', error => { if (!smokeFixture) { state.status = `Playback helper unavailable: ${error.message}. Run npm run bridge.`; send(); } });
   bridge.stderr.on('data', data => console.error(String(data)));
   bridge.stdin.on('error', error => console.error(error.message));
   bridge.on('spawn', () => bridge.stdin.write(JSON.stringify({ source: ['youtube-internal', 'verse-player'].includes(settings.source) ? '' : settings.source }) + '\n'));
@@ -239,14 +231,14 @@ function startBridge() {
       state.sources = sources;
       externalTrack = value.track;
       acceptPlayback();
-      if (value.error && !state.demo && !nativeTrack && settings.source !== 'youtube-internal') state.status = `Windows playback unavailable: ${value.error}`;
+      if (value.error && !smokeFixture && !nativeTrack && settings.source !== 'youtube-internal') state.status = `Windows playback unavailable: ${value.error}`;
       if (changedSources) rebuildTray();
       send();
     } catch (error) { console.error('Invalid playback update:', error.message); }
   });
   bridge.on('exit', () => {
     if (quitting) return;
-    if (!state.demo && !nativeTrack && settings.source !== 'youtube-internal') { generation++; request?.abort(); currentKey = ''; state.track = null; state.lyrics = []; state.status = 'Playback helper stopped. Restart Verse to reconnect.'; send(); }
+    if (!smokeFixture && !nativeTrack && settings.source !== 'youtube-internal') { generation++; request?.abort(); currentKey = ''; state.track = null; state.lyrics = []; state.status = 'Playback helper stopped. Restart Verse to reconnect.'; send(); }
   });
 }
 async function start() {
@@ -300,8 +292,8 @@ async function start() {
     await saveJson(dataPath('settings.json'), settings);
   }
   const area = screen.getPrimaryDisplay().workArea;
-  // Transparent Electron windows need a fixed frame; Expand uses explicit bounds instead of native maximize.
-  controls = secureWindow({ width: Math.min(1080, area.width), height: Math.min(760, area.height), transparent: true, frame: false, resizable: false, maximizable: false, backgroundColor: '#00000000', title: 'Verse', autoHideMenuBar: true, show: false });
+  // Solid backing keeps desktop content from competing with the navigation material.
+  controls = secureWindow({ width: Math.min(1080, area.width), height: Math.min(760, area.height), transparent: false, frame: false, resizable: true, minWidth: 740, minHeight: 600, backgroundColor: '#13151a', title: 'Verse', autoHideMenuBar: true, show: false });
   lyricsWindow = secureWindow({ width: 1000, height: 720, transparent: true, frame: false, backgroundColor: '#00000000', skipTaskbar: true, show: false, title: 'Verse · lyrics' });
   controls.on('close', event => { if (!quitting) { event.preventDefault(); controls.hide(); } });
   lyricsWindow.on('close', event => { if (!quitting) { event.preventDefault(); hideLyrics(); } });
@@ -323,7 +315,7 @@ async function start() {
     const song = await nativePlayer.resolve(id, saved);
     if (ticket !== nativeTicket) throw new Error('Another song was selected.');
     nativeStream = { remote: song.url, local: `verse-audio://player/${song.id}?session=${ticket}`, size: song.size, mime: song.mime };
-    if (state.demo) setDemo(false);
+    smokeFixture = false;
     nativeTrack = { ...song, url: undefined, source: 'Verse YouTube', position: 0, playing: false, rate: 1, seekEpoch: 0, timelineAvailable: true };
     await updateSettings({ source: 'verse-player' });
     acceptPlayback(); send();
@@ -343,8 +335,8 @@ async function start() {
   handle('settings', patch => updateSettings(patch));
   handle('action', async action => {
     if (action === 'show') showLyrics(); else if (action === 'hide') hideLyrics();
-    else if (action === 'preferences') showControls(); else if (action === 'demo') setDemo(!state.demo);
-    else if (action === 'retry' && state.track && !state.demo) lookup(state.track);
+    else if (action === 'preferences') showControls();
+    else if (action === 'retry' && state.track && !smokeFixture) lookup(state.track);
     else if (action === 'music-browser') shell.openExternal('https://music.youtube.com/');
     else if (action === 'quit') app.quit();
     else if (action === 'window-hide') controls.hide();
@@ -366,13 +358,11 @@ async function start() {
   powerMonitor.on('suspend', () => { locked = true; hideLyrics(); });
   powerMonitor.on('resume', () => { locked = false; currentKey = ''; generation++; request?.abort(); state.track = null; state.lyrics = []; send(); });
   startBridge();
-  if (process.argv.includes('--demo')) { setDemo(true); showLyrics(); }
   if (!process.argv.includes('--background')) showControls();
   rebuildTray(); send();
   console.log('Verse windows ready.');
   playbackTimer = setInterval(() => {
-    if (state.demo) { if (state.track.playing) state.track.position = ((performance.now() - demoStart) / 1000) % 26; send(); }
-    else if (!nativeTrack && settings.source !== 'youtube-internal' && bridgeLastSeen && Date.now() - bridgeLastSeen > 8000 && state.track?.source !== 'YouTube Music' && state.track) {
+    if (!nativeTrack && settings.source !== 'youtube-internal' && bridgeLastSeen && Date.now() - bridgeLastSeen > 8000 && state.track?.source !== 'YouTube Music' && state.track) {
       generation++; request?.abort(); currentKey = ''; state.track = null; state.lyrics = []; state.status = 'Playback updates stopped. Waiting to reconnect…'; send();
     }
     if (settings.idle && !locked && state.track?.playing && state.lyrics.length && !lyricsWindow.isDestroyed()) {
@@ -385,46 +375,62 @@ async function start() {
 }
 
 async function runSmoke() {
+  let fixtureStart = 0;
+  const fixtureLrc = '[00:00.00]<00:00.00>Let <00:00.55>the <00:01.05>night <00:01.90>unfold\n[00:04.00]<00:04.00>We <00:04.55>are <00:05.05>made <00:05.80>of <00:06.30>starlight\n[00:08.00]<00:08.00>Every <00:08.80>heartbeat <00:09.85>finds <00:10.50>a <00:10.90>home\n[00:13.00]<00:13.00>Like <00:13.55>an <00:14.05>ocean <00:15.10>in <00:15.55>the <00:16.00>sky\n[00:18.00]<00:18.00>Stay <00:18.80>here <00:19.50>with <00:20.10>me\n[00:22.00]<00:22.00>Tonight';
+  function setFixture(enabled) {
+    generation++; request?.abort(); currentKey = ''; smokeFixture = enabled;
+    fixtureStart = performance.now();
+    state.track = enabled ? { source: 'Smoke fixture', title: 'Timing fixture', artist: 'Verse tests', duration: 26, position: 0, playing: true, rate: 1, timelineAvailable: true } : null;
+    state.lyrics = enabled ? lyricApi.parseLrc(fixtureLrc) : [];
+    state.status = enabled ? 'Timing fixture' : 'Waiting for music…';
+    send();
+  }
+  const fixtureTimer = setInterval(() => {
+    if (smokeFixture && state.track) { if (state.track.playing) state.track.position = ((performance.now() - fixtureStart) / 1000) % 26; send(); }
+  }, 500);
+  app.once('before-quit', () => clearInterval(fixtureTimer));
   const assert = require('node:assert/strict');
   const output = path.join(process.cwd(), 'artifacts');
   await fs.mkdir(output, { recursive: true });
   controls.show(); controls.focus();
   controls.webContents.setBackgroundThrottling(false);
+  assert.equal(Object.hasOwn(snapshot(), 'demo'), false);
+  assert.equal(await controls.webContents.executeJavaScript(`document.querySelector('[data-action="demo"]') === null`), true);
   await new Promise(resolve => setTimeout(resolve, 400));
-  const translucency = async () => {
+  const solidBacking = async () => {
     const pixels = (await controls.webContents.capturePage({ x: 600, y: 90, width: 30, height: 20 })).toBitmap();
-    assert.ok(pixels.some((value, index) => index % 4 === 3 && value > 0 && value < 230), 'Main window surface is opaque.');
+    assert.ok(pixels.every((value, index) => index % 4 !== 3 || value === 255), 'Desktop content can leak through the main window.');
   };
-  await translucency();
+  await solidBacking();
   const originalBounds = controls.getBounds();
   await controls.webContents.executeJavaScript(`document.querySelector('[data-action="window-expand"]').click()`);
   await new Promise(resolve => setTimeout(resolve, 250));
   assert.deepEqual(controls.getBounds(), screen.getDisplayMatching(originalBounds).workArea);
-  await translucency();
+  await solidBacking();
   await controls.webContents.executeJavaScript(`document.querySelector('[data-action="window-expand"]').click()`);
   await new Promise(resolve => setTimeout(resolve, 250));
   assert.deepEqual(controls.getBounds(), originalBounds);
-  console.log('Whole-window translucency and Expand/Restore passed.');
+  console.log('Solid window backing and Expand/Restore passed.');
   const realFetch = global.fetch;
   let releaseFetch, signalFetch;
   const startedFetch = new Promise(resolve => signalFetch = resolve);
   const lateResponse = new Promise(resolve => releaseFetch = resolve);
   global.fetch = async () => { signalFetch(); return lateResponse; };
-  setDemo(true);
+  setFixture(true);
   const staleTrack = { source: 'Smoke fixture', title: `Original late fixture ${Date.now()}`, artist: 'Verse tests', duration: 10 };
   currentKey = lyricApi.trackKey(staleTrack);
   const pending = lookup(staleTrack);
   try {
     await startedFetch;
-    setDemo(true);
+    setFixture(true);
     releaseFetch({ ok: true, json: async () => ({ syncedLyrics: '[00:01]Obsolete original fixture' }) });
     await pending;
-    assert.equal(state.status, 'Original demo · true word timestamps');
+    assert.equal(state.status, 'Timing fixture');
     assert.equal(state.lyrics[0].text, 'Let the night unfold');
     console.log('Stale lyric response rejected after source change.');
   } finally { global.fetch = realFetch; }
-  setDemo(true);
-  demoStart = performance.now() - 8500;
+  setFixture(true);
+  fixtureStart = performance.now() - 8500;
   state.track.position = 8.5;
   await updateSettings({ reducedMotion: false, respectSystemMotion: false });
   for (const [style] of styles) {
@@ -441,7 +447,7 @@ async function runSmoke() {
     await fs.writeFile(path.join(output, `verse-${style}.png`), (await controls.webContents.capturePage()).toPNG());
   }
   assert.equal(state.lyrics.length, 6);
-  assert.equal(state.demo, true);
+  assert.equal(smokeFixture, true);
   await updateSettings({ style: 'fisheye-visual' });
   state.track.playing = false; state.track.position = 8.72; send();
   await new Promise(resolve => setTimeout(resolve, 350));
@@ -466,10 +472,19 @@ async function runSmoke() {
   assert.equal(textProbe.word, 'heartbeat'); assert.ok(textProbe.nodes <= 5);
   assert.equal(textProbe.canvas, 'DIV'); assert.equal(textProbe.background, 'rgba(0, 0, 0, 0)');
   assert.equal(textProbe.clock, false); assert.notEqual(textProbe.transition, '0s');
-  await updateSettings({ fontSize: 80 }); await new Promise(resolve => setTimeout(resolve, 80));
-  const smallSize = await controls.webContents.executeJavaScript(`parseFloat(getComputedStyle(document.querySelector('#preview-canvas')).fontSize)`);
-  await updateSettings({ fontSize: 160 }); await new Promise(resolve => setTimeout(resolve, 80));
-  const largeSize = await controls.webContents.executeJavaScript(`parseFloat(getComputedStyle(document.querySelector('#preview-canvas')).fontSize)`);
+  const resizeProbe = async size => {
+    await updateSettings({ fontSize: size });
+    const deadline = Date.now() + 5000;
+    let rendered;
+    do {
+      rendered = await controls.webContents.executeJavaScript(`parseFloat(getComputedStyle(document.querySelector('#preview-canvas')).fontSize)`);
+      if (Math.abs(rendered - size * .45) < .01) return rendered;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    } while (Date.now() < deadline);
+    throw new Error(`Text resize did not render: requested ${size}, rendered ${rendered}.`);
+  };
+  const smallSize = await resizeProbe(80);
+  const largeSize = await resizeProbe(160);
   assert.equal(largeSize, smallSize * 2);
   await updateSettings({ fontSize: 112 });
   console.log('Native word pop verified, no word background/clock, size doubles correctly; foreground FPS:', frameRate);
@@ -482,7 +497,7 @@ async function runSmoke() {
     const after = await readMetrics();
     console.log('Renderer task milliseconds over 1.5 seconds:', Math.round((after.TaskDuration - before.TaskDuration) * 1000));
   } finally { controls.webContents.debugger.detach(); }
-  setDemo(true);
+  setFixture(true);
   await updateSettings({ mode: 'overlay' }); showLyrics();
   assert.equal(lyricsWindow.isVisible(), true);
   hideLyrics(); assert.equal(lyricsWindow.isVisible(), false);
@@ -513,9 +528,9 @@ async function runSmoke() {
   await new Promise(resolve => setTimeout(resolve, 500));
   await fs.writeFile(path.join(output, 'verse-settings.png'), (await controls.webContents.capturePage()).toPNG());
   console.log('Windows reduced-motion preference:', await controls.webContents.executeJavaScript(`matchMedia('(prefers-reduced-motion: reduce)').matches`));
-  console.log('Desktop smoke passed: four styles, demo lyrics, overlay/fullscreen visibility, preferences.');
+  console.log('Desktop smoke passed: four styles, fixture lyrics, overlay/fullscreen visibility, preferences.');
   if (process.argv.includes('--music-smoke')) {
-    setDemo(false);
+    setFixture(false);
     await controls.webContents.executeJavaScript(`document.querySelector('[data-tab="music"]').click(); document.querySelector('#native-audio').volume = .03;`, true);
     const waitFor = async (expression, timeout = 25000) => {
       const deadline = Date.now() + timeout;
@@ -581,14 +596,17 @@ async function runSmoke() {
     console.log('Hidden native playback: aggregate Electron CPU seconds over 5 s:', cpuSeconds.toFixed(3), 'aggregate working sets MB:', Math.round(metricsAfter.reduce((sum, metric) => sum + metric.memory.workingSetSize, 0) / 1024));
     controls.show();
     await controls.webContents.executeJavaScript(`document.querySelector('#native-audio').pause()`);
+    await controls.webContents.executeJavaScript(`document.querySelector('[data-tab="settings"]').click()`);
+    await new Promise(resolve => setTimeout(resolve, 350));
+    await fs.writeFile(path.join(output, 'verse-settings-live.png'), (await controls.webContents.capturePage()).toPNG());
     hideLyrics();
   }
-  setDemo(true);
+  setFixture(true);
   lyricsWindow.destroy();
   assert.equal(lyricsWindow.isDestroyed(), true);
   send(); updateBlocker();
   await new Promise(resolve => setTimeout(resolve, 600));
-  console.log('Shutdown regression passed: active demo updates tolerate a destroyed lyric window.');
+  console.log('Shutdown regression passed: active playback updates tolerate a destroyed lyric window.');
   app.quit();
   assert.equal(quitting, true);
   assert.equal(playbackTimer._destroyed, true);
